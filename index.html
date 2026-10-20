@@ -288,16 +288,14 @@
           const csvText = await res.text();
           const rows = parseCSV(csvText);
 
-          // Eğer Google boş sekme yerine ilk sayfayı (Supermarkt) döndürdüyse bunu tespit et:
-          // İlk kelime 'Supermarkt' ise ve bu sekme supermarkt değilse, bu sekme henüz boştur.
+          // Google boş sekme yerine ilk sayfayı (Supermarkt) döndürürse tespit et ve engelle
           const isFallback = cat.id !== 'supermarkt' && rows.some(r => r[1]?.trim().toLowerCase() === 'supermarkt');
           if (isFallback) {
-            return; // Boş sekmeyi atla, 0/0 kalsın
+            return;
           }
 
           rows.forEach((row, idx) => {
             const word = row[1] ? row[1].trim() : '';
-            // Başlık satırlarını ve boş satırları atla
             if (word && word.toLowerCase() !== 'wort' && row[0]?.toLowerCase() !== 'artikel') {
               allWords.push({
                 id: `${cat.id}_${idx + 1}`,
@@ -314,23 +312,6 @@
             }
           });
         });
-
-        await Promise.all(fetchPromises);
-        MASTER_VOCABULARY = allWords;
-
-        document.getElementById('loading-state').classList.add('hidden');
-        document.getElementById('category-screen').classList.remove('hidden');
-        document.getElementById('category-screen').classList.add('flex');
-        document.getElementById('deck-name-badge').textContent = 'Konu Seçimi';
-        renderCategoryScreen();
-      } catch (err) {
-        console.error("Tablo yükleme hatası:", err);
-        document.getElementById('loading-state').innerHTML = `
-          <div class="text-rose-500 font-bold mb-2">⚠️ E-Tabloya Bağlanılamadı</div>
-          <button onclick="location.reload()" class="px-4 py-2 bg-rose-500 text-white rounded-xl text-xs font-bold">Tekrar Dene</button>
-        `;
-      }
-    }
 
         await Promise.all(fetchPromises);
         MASTER_VOCABULARY = allWords;
@@ -527,7 +508,6 @@
 
       card.innerHTML = `
         <div class="card-flipper">
-          <!-- ÖN YÜZ -->
           <div class="face bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 p-6 flex flex-col justify-between overflow-hidden">
             <div class="stamp-like pointer-events-none absolute top-7 left-7 z-40 border-4 border-emerald-500 text-emerald-500 font-display font-black text-2xl tracking-wider px-3.5 py-1 rounded-xl rotate-[-15deg] opacity-0 transition-opacity uppercase">GELERNT ✓</div>
             <div class="stamp-dislike pointer-events-none absolute top-7 right-7 z-40 border-4 border-rose-500 text-rose-500 font-display font-black text-2xl tracking-wider px-3.5 py-1 rounded-xl rotate-[15deg] opacity-0 transition-opacity uppercase">NOCHMAL ✕</div>
@@ -550,7 +530,6 @@
             </div>
           </div>
 
-          <!-- ARKA YÜZ -->
           <div class="face face-back bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-slate-950 border-2 border-indigo-400/40 p-6 flex flex-col justify-between overflow-hidden">
             <div class="flex items-center justify-between">
               <span class="text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">Detay & Anlam</span>
@@ -760,7 +739,7 @@
       document.getElementById("counter-streak").textContent = state.streak;
 
       const total = activeCatPool.length;
-      const pct = total > 0 ? Math.round((masteredCount / total) * 100), 100 : 0;
+      const pct = total > 0 ? Math.round((masteredCount / total) * 100) : 0;
       document.getElementById("progress-bar-fill").style.width = `${pct}%`;
 
       document.getElementById("stat-total-swipes").textContent = state.totalSwipes;
