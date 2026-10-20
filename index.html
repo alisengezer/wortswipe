@@ -240,7 +240,6 @@
     ===================================================================== */
     const DOC_ID = '1Xy5Ws703jxfvYb8A7f4kOL-r4YKX8JhEHTlKfhwV3eE';
 
-    // Her sekmeye özel tam gid numaraları
     const CATEGORIES = [
       { id: 'supermarkt', gid: '0', name: 'Süpermarket & Alışveriş', icon: '🛒', desc: 'Gıdalar, içecekler, market' },
       { id: 'verkehr', gid: '1498837832', name: 'Ulaşım & Seyahat', icon: '🚆', desc: 'Bilet, tren, istasyon, uçak' },
@@ -251,7 +250,7 @@
     ];
 
     let MASTER_VOCABULARY = [];
-    const STORAGE_KEY = "wortswipe_sheets_v3";
+    const STORAGE_KEY = "wortswipe_sheets_v4";
 
     let state = {
       currentCatId: null,
@@ -296,7 +295,9 @@
 
           rows.forEach((row, idx) => {
             const word = row[1] ? row[1].trim() : '';
+            // Başlık satırlarını atla (Wort / Artikel)
             if (word && word.toLowerCase() !== 'wort' && row[0]?.toLowerCase() !== 'artikel') {
+              const noteText = row[7] ? row[7].trim() : '';
               allWords.push({
                 id: `${cat.id}_${idx + 1}`,
                 category: cat.id,
@@ -307,6 +308,7 @@
                 emoji: row[4] || '✨',
                 exampleDe: row[5] || '',
                 exampleTr: row[6] || '',
+                notes: (noteText !== '-' && noteText !== '') ? noteText : '',
                 type: (row[0] && row[0] !== '-' && row[0] !== '') ? 'Nomen' : 'Wort'
               });
             }
@@ -508,6 +510,7 @@
 
       card.innerHTML = `
         <div class="card-flipper">
+          <!-- ÖN YÜZ -->
           <div class="face bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 p-6 flex flex-col justify-between overflow-hidden">
             <div class="stamp-like pointer-events-none absolute top-7 left-7 z-40 border-4 border-emerald-500 text-emerald-500 font-display font-black text-2xl tracking-wider px-3.5 py-1 rounded-xl rotate-[-15deg] opacity-0 transition-opacity uppercase">GELERNT ✓</div>
             <div class="stamp-dislike pointer-events-none absolute top-7 right-7 z-40 border-4 border-rose-500 text-rose-500 font-display font-black text-2xl tracking-wider px-3.5 py-1 rounded-xl rotate-[15deg] opacity-0 transition-opacity uppercase">NOCHMAL ✕</div>
@@ -530,16 +533,17 @@
             </div>
           </div>
 
+          <!-- ARKA YÜZ -->
           <div class="face face-back bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-slate-950 border-2 border-indigo-400/40 p-6 flex flex-col justify-between overflow-hidden">
             <div class="flex items-center justify-between">
               <span class="text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">Detay & Anlam</span>
               <button type="button" class="btn-card-audio p-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-indigo-500 transition" title="Kelimeyi Dinle"><i class="ph-fill ph-speaker-high text-lg"></i></button>
             </div>
 
-            <div class="my-auto space-y-3">
+            <div class="my-auto space-y-2.5">
               <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-800 text-left">
                 ${data.plural && data.plural !== '-' ? `
-                  <div class="pb-2.5 mb-2.5 border-b border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between">
+                  <div class="pb-2 mb-2 border-b border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between">
                     <div>
                       <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">Çoğul (Plural)</span>
                       <span class="text-sm font-semibold text-slate-700 dark:text-slate-200 font-mono">${data.plural}</span>
@@ -558,14 +562,22 @@
               </div>
 
               ${data.exampleDe ? `
-                <div class="p-3.5 rounded-2xl bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 pointer-events-none">
+                <div class="p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 pointer-events-none">
                   <div class="flex items-start gap-2">
                     <i class="ph-bold ph-chat-centered-text text-indigo-500 mt-0.5 shrink-0"></i>
                     <div>
                       <p class="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-100">"${data.exampleDe}"</p>
-                      <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 italic">"${data.exampleTr}"</p>
+                      <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 italic">"${data.exampleTr}"</p>
                     </div>
                   </div>
+                </div>
+              ` : ''}
+
+              <!-- TIPP / IPUCU KUTUSU (H SÜTUNU) -->
+              ${data.notes ? `
+                <div class="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/50 flex items-start gap-2 pointer-events-none">
+                  <span class="text-sm shrink-0">💡</span>
+                  <p class="text-[11px] font-medium text-amber-700 dark:text-amber-300 leading-snug">${data.notes}</p>
                 </div>
               ` : ''}
             </div>
