@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="tr" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>WortSwipe | Almanca Kelime Ezberleme</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            display: ['"Outfit"', 'sans-serif'],
+          },
+          boxShadow: {
+            'card': '0 20px 35px -10px rgba(0, 0, 0, 0.12), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            'card-dark': '0 25px 45px -12px rgba(0, 0, 0, 0.6)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    .perspective-container { perspective: 1200px; -webkit-perspective: 1200px; }
+    .card-flipper {
+      position: relative; width: 100%; height: 100%;
+      transform-style: preserve-3d; -webkit-transform-style: preserve-3d;
+      transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+    .card-flipper.is-flipped { transform: rotateY(180deg); -webkit-transform: rotateY(180deg); }
+    .face {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 1.5rem;
+    }
+    .face-back { transform: rotateY(180deg); -webkit-transform: rotateY(180deg); }
+    .touch-none-all { touch-action: none; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+    @keyframes audioPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+    .audio-playing { animation: audioPulse 0.8s ease-in-out infinite; }
+  </style>
+</head>
+<body class="bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col justify-between font-sans transition-colors duration-300 overflow-x-hidden selection:bg-rose-500 selection:text-white">
+
+  <!-- ================= TOP HEADER ================= -->
+  <header class="w-full max-w-md mx-auto px-4 pt-3 pb-2 flex items-center justify-between z-20 shrink-0">
+    <div class="flex items-center space-x-2">
+      <button id="btn-header-back" class="hidden w-9 h-9 items-center justify-center rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-sm border border-slate-200/70 dark:border-slate-700/70 hover:bg-slate-50 dark:hover:bg-slate-700 transition active:scale-95" title="Konulara Dön">
+        <i class="ph-bold ph-arrow-left text-lg"></i>
+      </button>
+
+      <div class="w-9 h-9 rounded-2xl bg-gradient-to-tr from-rose-500 via-pink-500 to-amber-400 flex items-center justify-center shadow-lg shadow-rose-500/25 text-white text-xl">
+        <i class="ph-bold ph-cards"></i>
+      </div>
+      <div>
+        <h1 class="font-display font-extrabold text-lg leading-tight tracking-tight bg-gradient-to-r from-rose-600 via-pink-500 to-amber-500 bg-clip-text text-transparent">
+          WortSwipe
+        </h1>
+        <div class="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+          <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          <span id="deck-name-badge">Yükleniyor...</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex items-center space-x-1.5">
+      <button id="btn-stats" class="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 shadow-sm border border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-50 dark:hover:bg-slate-700 transition active:scale-95" title="İstatistikler">
+        <i class="ph-bold ph-chart-bar text-lg"></i>
+      </button>
+      <button id="btn-theme" class="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 shadow-sm border border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-50 dark:hover:bg-slate-700 transition active:scale-95" title="Görünüm Değiştir">
+        <i class="ph-bold ph-moon dark:hidden text-lg"></i>
+        <i class="ph-bold ph-sun hidden dark:block text-lg text-amber-400"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- ================= YÜKLENİYOR / HATA EKRANI ================= -->
+  <div id="loading-state" class="flex-1 flex flex-col items-center justify-center p-6 text-center">
+    <div class="w-10 h-10 border-4 border-rose-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+    <p class="text-xs font-semibold text-slate-500 dark:text-slate-400">Google E-Tablo kelimeleri yükleniyor...</p>
+  </div>
+
+  <!-- ================= KATEGORİ PANELİ ================= -->
+  <section id="category-screen" class="hidden w-full max-w-md mx-auto px-4 flex-1 flex-col justify-center py-4 z-10">
+    <div class="mb-4">
+      <h2 class="text-2xl font-display font-extrabold text-slate-900 dark:text-white">Çalışılacak Konu</h2>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Öğrenmek istediğin kategoriyi seçip pratik yapmaya başla.</p>
+    </div>
+    <div class="grid grid-cols-1 gap-2.5 overflow-y-auto max-h-[68vh] pr-1" id="category-cards-grid"></div>
+  </section>
+
+  <!-- ================= ÇALIŞMA EKRANI ================= -->
+  <div id="study-screen" class="hidden flex-1 flex-col justify-between w-full">
+    <section class="w-full max-w-md mx-auto px-4 mb-1 z-10 shrink-0">
+      <div class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-2xl p-2.5 shadow-sm border border-slate-200/70 dark:border-slate-800/80 flex items-center justify-between text-xs">
+        <div class="flex items-center gap-1.5">
+          <div class="w-6 h-6 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
+            <i class="ph-bold ph-check text-xs"></i>
+          </div>
+          <div>
+            <span class="text-slate-400 dark:text-slate-500 block text-[9px] uppercase font-semibold">Öğrenilen</span>
+            <span id="counter-mastered" class="font-bold text-slate-800 dark:text-slate-100">0</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1.5">
+          <div class="w-6 h-6 rounded-lg bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold">
+            <i class="ph-bold ph-arrows-clockwise text-xs"></i>
+          </div>
+          <div>
+            <span class="text-slate-400 dark:text-slate-500 block text-[9px] uppercase font-semibold">Kalan Sıra</span>
+            <span id="counter-queue" class="font-bold text-slate-800 dark:text-slate-100">0</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1.5">
+          <div class="w-6 h-6 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+            <i class="ph-fill ph-fire text-xs"></i>
+          </div>
+          <div>
+            <span class="text-slate-400 dark:text-slate-500 block text-[9px] uppercase font-semibold">Seri</span>
+            <span id="counter-streak" class="font-bold text-amber-600 dark:text-amber-400">0</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+        <div id="progress-bar-fill" class="bg-gradient-to-r from-rose-500 to-emerald-500 h-full w-0 transition-all duration-300"></div>
+      </div>
+    </section>
+
+    <!-- Kart Destesi -->
+    <main class="w-full max-w-md mx-auto flex-1 flex flex-col justify-center items-center px-4 relative my-auto select-none">
+      <div id="card-deck-container" class="relative w-full h-[450px] max-h-[62vh] flex items-center justify-center perspective-container">
+        
+        <div id="empty-state" class="hidden flex-col items-center justify-center text-center p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-card w-full h-full max-h-[440px]">
+          <div class="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/80 text-emerald-500 rounded-full flex items-center justify-center text-3xl mb-3 animate-bounce">
+            <i class="ph-fill ph-trophy"></i>
+          </div>
+          <h2 class="text-xl font-display font-extrabold text-slate-800 dark:text-white mb-1.5">Harika İş! Wunderbar! 🎉</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 max-w-xs mb-5">
+            Bu kategorideki tüm kelimeleri tamamladın.
+          </p>
+          <div class="flex flex-col gap-2 w-full max-w-xs">
+            <button id="btn-change-category" class="w-full py-3 px-4 bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white font-bold rounded-2xl shadow-lg shadow-rose-500/25 transition active:scale-95 flex items-center justify-center gap-2 text-sm">
+              <i class="ph-bold ph-squares-four text-lg"></i>
+              Başka Bir Konu Seç
+            </button>
+            <button id="btn-restart-deck" class="w-full py-2.5 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold rounded-2xl transition text-xs">
+              Bu Konuyu Baştan Tekrar Et
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="hidden sm:flex items-center justify-center gap-3 mt-2 text-[11px] text-slate-400 dark:text-slate-500">
+        <span><kbd class="px-1.5 py-0.5 bg-slate-200 dark:bg-slate-800 rounded text-slate-700 dark:text-slate-300 font-mono text-[10px]">←</kbd> Tekrar</span>
+        <span><kbd class="px-1.5 py-0.5 bg-slate-200 dark:bg-slate-800 rounded text-slate-700 dark:text-slate-300 font-mono text-[10px]">Boşluk</kbd> Çevir</span>
+        <span><kbd class="px-1.5 py-0.5 bg-slate-200 dark:bg-slate-800 rounded text-slate-700 dark:text-slate-300 font-mono text-[10px]">↑</kbd> Dinle</span>
+        <span><kbd class="px-1.5 py-0.5 bg-slate-200 dark:bg-slate-800 rounded text-slate-700 dark:text-slate-300 font-mono text-[10px]">→</kbd> Öğrendim</span>
+      </div>
+    </main>
+
+    <!-- Alt Butonlar -->
+    <footer class="w-full max-w-md mx-auto px-6 py-3 flex items-center justify-around z-20 shrink-0">
+      <button id="btn-action-undo" class="w-11 h-11 rounded-full bg-white dark:bg-slate-800 text-amber-500 shadow-md border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-center hover:scale-110 active:scale-95 transition" title="Geri Al (Z)">
+        <i class="ph-bold ph-arrow-u-up-left text-lg"></i>
+      </button>
+
+      <button id="btn-action-left" class="w-14 h-14 rounded-full bg-white dark:bg-slate-800 text-rose-500 shadow-lg border border-rose-100 dark:border-rose-950/40 flex items-center justify-center hover:scale-110 active:scale-90 transition group shadow-rose-500/10" title="Ezberleyemedim / Tekrar Et">
+        <i class="ph-bold ph-x text-2xl group-hover:scale-110 transition"></i>
+      </button>
+
+      <button id="btn-action-flip" class="w-12 h-12 rounded-full bg-gradient-to-tr from-sky-500 to-blue-600 text-white shadow-lg shadow-sky-500/25 flex items-center justify-center hover:scale-110 active:scale-95 transition" title="Kartı Çevir (Boşluk)">
+        <i class="ph-bold ph-arrows-clockwise text-xl"></i>
+      </button>
+
+      <button id="btn-action-speak" class="w-11 h-11 rounded-full bg-white dark:bg-slate-800 text-indigo-500 shadow-md border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-center hover:scale-110 active:scale-95 transition" title="Almanca Telaffuz">
+        <i id="btn-speak-icon" class="ph-bold ph-speaker-high text-xl"></i>
+      </button>
+
+      <button id="btn-action-right" class="w-14 h-14 rounded-full bg-white dark:bg-slate-800 text-emerald-500 shadow-lg border border-emerald-100 dark:border-emerald-950/40 flex items-center justify-center hover:scale-110 active:scale-90 transition group shadow-emerald-500/10" title="Ezberledim / Öğrendim">
+        <i class="ph-bold ph-check text-2xl group-hover:scale-110 transition"></i>
+      </button>
+    </footer>
+  </div>
+
+  <!-- ================= İSTATİSTİK MODALI ================= -->
+  <div id="modal-stats" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl relative">
+      <button id="btn-close-stats" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+        <i class="ph-bold ph-x text-xl"></i>
+      </button>
+
+      <div class="w-12 h-12 rounded-2xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-500 flex items-center justify-center text-2xl mb-3">
+        <i class="ph-bold ph-chart-line-up"></i>
+      </div>
+
+      <h3 class="text-xl font-display font-bold text-slate-900 dark:text-white">Çalışma Özeti</h3>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-4">
+        Oturum boyunca kaydettiğin performans verileri.
+      </p>
+
+      <div class="grid grid-cols-2 gap-3 mb-4">
+        <div class="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800">
+          <span class="text-[10px] text-slate-400 uppercase font-semibold block">Toplam Kaydırma</span>
+          <span id="stat-total-swipes" class="text-xl font-extrabold text-slate-800 dark:text-white">0</span>
+        </div>
+        <div class="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800">
+          <span class="text-[10px] text-slate-400 uppercase font-semibold block">Doğruluk Oranı</span>
+          <span id="stat-accuracy" class="text-xl font-extrabold text-emerald-500">0%</span>
+        </div>
+        <div class="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800">
+          <span class="text-[10px] text-slate-400 uppercase font-semibold block">Hafızadaki Kelimeler</span>
+          <span id="stat-mastered" class="text-xl font-extrabold text-sky-500">0</span>
+        </div>
+        <div class="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800">
+          <span class="text-[10px] text-slate-400 uppercase font-semibold block">En Yüksek Seri</span>
+          <span id="stat-best-streak" class="text-xl font-extrabold text-amber-500">0</span>
+        </div>
+      </div>
+
+      <button id="btn-reset-all" class="w-full py-2.5 text-xs font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition border border-rose-200 dark:border-rose-900/50">
+        Tüm İlerlemeyi Sıfırla
+      </button>
+    </div>
+  </div>
+
+  <script>
+    /* =====================================================================
+       YAYINLANMIŞ GOOGLE E-TABLO BAĞLANTISI
+    ===================================================================== */
+    const BASE_PUB_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTJ8Vx7kRdSxReBsO9FXAKh2KBMFGVeGRneZ4DB9ID4ODwa_dTa7AsQ0OB6BHiYgvY-IWvtRsKoIOVq/pub';
+
+    const CATEGORIES = [
+      { id: 'supermarkt', name: 'Süpermarket & Alışveriş', icon: '🛒', desc: 'Gıdalar, içecekler, market' },
+      { id: 'verkehr', name: 'Ulaşım & Seyahat', icon: '🚆', desc: 'Bilet, tren, istasyon, uçak' },
+      { id: 'obst', name: 'Manav (Meyve & Sebze)', icon: '🍎', desc: 'Taze meyveler, sebzeler' },
+      { id: 'schreibwaren', name: 'Kırtasiye & Ofis', icon: '✏️', desc: 'Defter, kitap, kalem' },
+      { id: 'zuhause', name: 'Ev & Eşyalar', icon: '🏠', desc: 'Mobilyalar, odalar, anahtar' },
+      { id: 'all', name: 'Tümünü Karışık Çalış', icon: '🎲', desc: 'Tüm sekmeleri birleştir' }
+    ];
+
+    let MASTER_VOCABULARY = [];
+    const STORAGE_KEY = "wortswipe_sheets_v2";
+
+    let state = {
+      currentCatId: null,
+      queue: [],
+      masteredIds: [],
+      history: [],
+      streak: 0,
+      bestStreak: 0,
+      totalSwipes: 0,
+      correctSwipes: 0
+    };
+
+    /* CSV Okuyucu */
+    function parseCSV(text) {
+      const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
+      const rows = [];
+      for (let i = 1; i < lines.length; i++) {
+        // Virgülle ayrılmış CSV alanlarını (tırnak içindekileri koruyarak) böl
+        const matches = lines[i].match(/(".*?"|[^",\r\n]+)(?=\s*,|\s*$)/g);
+        if (matches) {
+          rows.push(matches.map(m => m.replace(/^"|"$/g, '').trim()));
+        }
+      }
+      return rows;
+    }
+
+    async function loadWordsFromGoogleSheets() {
+      const sheetNames = ['supermarkt', 'verkehr', 'obst', 'schreibwaren', 'zuhause'];
+      const allWords = [];
+
+      try {
+        const fetchPromises = sheetNames.map(async (sheet) => {
+          // Yayınlanmış Google E-tablo sekme CSV URL'si
+          const url = `${BASE_PUB_URL}?output=csv&sheet=${encodeURIComponent(sheet)}`;
+          const res = await fetch(url);
+          if (!res.ok) throw new Error(`${sheet} sekmesi okunamadı`);
+          const csvText = await res.text();
+          const rows = parseCSV(csvText);
+
+          rows.forEach((row, idx) => {
+            // Sütunlar: 0:Artikel, 1:Wort, 2:Plural, 3:Bedeutung, 4:Emoji, 5:BeispielDE, 6:BeispielTR
+            if (row.length >= 4 && row[1]) {
+              allWords.push({
+                id: `${sheet}_${idx + 1}`,
+                category: sheet,
+                article: row[0] || '-',
+                word: row[1],
+                plural: row[2] || '-',
+                translation: row[3],
+                emoji: row[4] || '✨',
+                exampleDe: row[5] || '',
+                exampleTr: row[6] || '',
+                type: (row[0] && row[0] !== '-') ? 'Nomen' : 'Wort'
+              });
+            }
+          });
+        });
+
+        await Promise.all(fetchPromises);
+        MASTER_VOCABULARY = allWords;
+
+        document.getElementById('loading-state').classList.add('hidden');
+        document.getElementById('category-screen').classList.remove('hidden');
+        document.getElementById('category-screen').classList.add('flex');
+        document.getElementById('deck-name-badge').textContent = 'Konu Seçimi';
+        renderCategoryScreen();
+      } catch (err) {
+        console.error("Tablo yükleme hatası:", err);
+        document.getElementById('loading-state').innerHTML = `
+          <div class="text-rose-500 font-bold mb-2">⚠️ E-Tabloya Bağlanılamadı</div>
+          <p class="text-xs text-slate-500 max-w-xs mb-3">Google E-Tablonuzdaki sekmelerin adlarının tam olarak <b>supermarkt, verkehr, obst, schreibwaren, zuhause</b> olduğundan emin olun.</p>
+          <button onclick="location.reload()" class="px-4 py-2 bg-rose-500 text-white rounded-xl text-xs font-bold">Tekrar Dene</button>
+        `;
+      }
+    }
+
+    function loadState() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          state.masteredIds = parsed.masteredIds || [];
+          state.streak = parsed.streak || 0;
+          state.bestStreak = parsed.bestStreak || 0;
+          state.totalSwipes = parsed.totalSwipes || 0;
+          state.correctSwipes = parsed.correctSwipes || 0;
+        }
+      } catch (e) { console.error(e); }
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          masteredIds: state.masteredIds,
+          streak: state.streak,
+          bestStreak: state.bestStreak,
+          totalSwipes: state.totalSwipes,
+          correctSwipes: state.correctSwipes
+        }));
+      } catch (e) { console.error(e); }
+      updateUI();
+    }
+
+    function getArticleTheme(article) {
+      switch ((article || "").toLowerCase()) {
+        case "der": return { bg: "bg-sky-50 dark:bg-sky-950/30", border: "border-sky-500", badgeBg: "bg-sky-500 text-white", text: "text-sky-600 dark:text-sky-400", name: "Maskulin (der)" };
+        case "die": return { bg: "bg-rose-50 dark:bg-rose-950/30", border: "border-rose-500", badgeBg: "bg-rose-500 text-white", text: "text-rose-600 dark:text-rose-400", name: "Feminin (die)" };
+        case "das": return { bg: "bg-emerald-50 dark:bg-emerald-950/30", border: "border-emerald-500", badgeBg: "bg-emerald-500 text-white", text: "text-emerald-600 dark:text-emerald-400", name: "Neutral (das)" };
+        default: return { bg: "bg-violet-50 dark:bg-violet-950/30", border: "border-violet-500", badgeBg: "bg-violet-500 text-white", text: "text-violet-600 dark:text-violet-400", name: "Diğer" };
+      }
+    }
+
+    const audioPlayer = new Audio();
+    function speakGermanWord(text) {
+      const icon = document.getElementById("btn-speak-icon");
+      if (icon) icon.parentElement.classList.add("audio-playing");
+
+      const query = text.replace(/[^a-zA-ZäöüÄÖÜß ]/g, '').trim();
+      const audioUrl = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(query)}&type=2&le=de`;
+
+      audioPlayer.pause();
+      audioPlayer.src = audioUrl;
+      audioPlayer.onended = () => { if (icon) icon.parentElement.classList.remove("audio-playing"); };
+      audioPlayer.onerror = () => {
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          const ut = new SpeechSynthesisUtterance(query);
+          ut.lang = "de-DE";
+          ut.rate = 0.85;
+          ut.onend = () => { if (icon) icon.parentElement.classList.remove("audio-playing"); };
+          ut.onerror = () => { if (icon) icon.parentElement.classList.remove("audio-playing"); };
+          window.speechSynthesis.speak(ut);
+        } else {
+          if (icon) icon.parentElement.classList.remove("audio-playing");
+        }
+      };
+      audioPlayer.play().catch(() => audioPlayer.onerror());
+    }
+
+    function renderCategoryScreen() {
+      const grid = document.getElementById('category-cards-grid');
+      grid.innerHTML = '';
+
+      CATEGORIES.forEach(cat => {
+        const catWords = cat.id === 'all' 
+          ? MASTER_VOCABULARY 
+          : MASTER_VOCABULARY.filter(w => w.category === cat.id);
+        
+        const masteredInCat = catWords.filter(w => state.masteredIds.includes(w.id)).length;
+        const totalInCat = catWords.length;
+        const pct = totalInCat > 0 ? Math.round((masteredInCat / totalInCat) * 100) : 0;
+
+        const card = document.createElement('div');
+        card.className = "bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3.5 flex items-center justify-between cursor-pointer hover:border-rose-400 dark:hover:border-rose-500 transition shadow-sm active:scale-[0.99]";
+        card.onclick = () => selectCategory(cat.id, cat.name);
+
+        card.innerHTML = `
+          <div class="flex items-center gap-3">
+            <div class="w-11 h-11 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-2xl shrink-0">
+              ${cat.icon}
+            </div>
+            <div>
+              <h3 class="font-display font-bold text-sm text-slate-900 dark:text-white leading-snug">${cat.name}</h3>
+              <p class="text-[11px] text-slate-400 dark:text-slate-500">${cat.desc}</p>
+            </div>
+          </div>
+          <div class="text-right shrink-0">
+            <span class="text-xs font-extrabold ${pct === 100 ? 'text-emerald-500' : 'text-slate-700 dark:text-slate-300'}">${masteredInCat}/${totalInCat}</span>
+            <div class="w-12 bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full mt-1 overflow-hidden">
+              <div class="bg-gradient-to-r from-rose-500 to-emerald-500 h-full" style="width: ${pct}%"></div>
+            </div>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function selectCategory(catId, catName) {
+      state.currentCatId = catId;
+      document.getElementById('category-screen').classList.add('hidden');
+      document.getElementById('study-screen').classList.remove('hidden');
+      document.getElementById('study-screen').classList.add('flex');
+      document.getElementById('btn-header-back').classList.remove('hidden');
+      document.getElementById('btn-header-back').classList.add('flex');
+      document.getElementById('deck-name-badge').textContent = catName;
+
+      const pool = catId === 'all'
+        ? [...MASTER_VOCABULARY]
+        : MASTER_VOCABULARY.filter(w => w.category === catId);
+
+      state.queue = [...pool].sort(() => Math.random() - 0.5);
+      state.history = [];
+      renderDeck();
+      updateUI();
+    }
+
+    function returnToCategories() {
+      document.getElementById('study-screen').classList.add('hidden');
+      document.getElementById('study-screen').classList.remove('flex');
+      document.getElementById('category-screen').classList.remove('hidden');
+      document.getElementById('btn-header-back').classList.add('hidden');
+      document.getElementById('btn-header-back').classList.remove('flex');
+      document.getElementById('deck-name-badge').textContent = "Konu Seçimi";
+      renderCategoryScreen();
+    }
+
+    const deckContainer = document.getElementById("card-deck-container");
+    const emptyState = document.getElementById("empty-state");
+    let activeCardElement = null;
+    let isFlipped = false;
+
+    function renderDeck() {
+      const existingCards = deckContainer.querySelectorAll(".swipe-card");
+      existingCards.forEach(c => c.remove());
+
+      if (state.queue.length === 0) {
+        emptyState.classList.remove("hidden");
+        emptyState.classList.add("flex");
+        return;
+      } else {
+        emptyState.classList.add("hidden");
+        emptyState.classList.remove("flex");
+      }
+
+      const visibleCount = Math.min(state.queue.length, 3);
+      for (let i = visibleCount - 1; i >= 0; i--) {
+        const cardData = state.queue[i];
+        const cardNode = createCardElement(cardData, i);
+        deckContainer.appendChild(cardNode);
+      }
+
+      const topCards = deckContainer.querySelectorAll(".swipe-card");
+      if (topCards.length > 0) {
+        activeCardElement = topCards[topCards.length - 1];
+        setupCardGestures(activeCardElement);
+      } else {
+        activeCardElement = null;
+      }
+      isFlipped = false;
+    }
+
+    function createCardElement(data, stackIndex) {
+      const theme = getArticleTheme(data.article);
+      const isTop = stackIndex === 0;
+
+      const card = document.createElement("div");
+      card.className = `swipe-card absolute inset-0 w-full h-full cursor-grab touch-none-all select-none ${
+        isTop ? "z-30 shadow-card dark:shadow-card-dark" : stackIndex === 1 ? "z-20 scale-[0.95] translate-y-3 opacity-90 shadow-md" : "z-10 scale-[0.90] translate-y-6 opacity-75 shadow-sm"
+      }`;
+      card.dataset.id = data.id;
+
+      card.innerHTML = `
+        <div class="card-flipper">
+          <div class="face bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 p-6 flex flex-col justify-between overflow-hidden">
+            <div class="stamp-like pointer-events-none absolute top-7 left-7 z-40 border-4 border-emerald-500 text-emerald-500 font-display font-black text-2xl tracking-wider px-3.5 py-1 rounded-xl rotate-[-15deg] opacity-0 transition-opacity uppercase">GELERNT ✓</div>
+            <div class="stamp-dislike pointer-events-none absolute top-7 right-7 z-40 border-4 border-rose-500 text-rose-500 font-display font-black text-2xl tracking-wider px-3.5 py-1 rounded-xl rotate-[15deg] opacity-0 transition-opacity uppercase">NOCHMAL ✕</div>
+
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${theme.bg} ${theme.text} border ${theme.border}">${data.type} • ${theme.name}</span>
+              <button type="button" class="btn-card-audio p-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-indigo-500 transition" title="Seslendir"><i class="ph-fill ph-speaker-high text-lg"></i></button>
+            </div>
+
+            <div class="text-center my-auto px-2 pointer-events-none">
+              <div class="text-5xl sm:text-6xl mb-3 filter drop-shadow-sm">${data.emoji || '✨'}</div>
+              ${data.article && data.article !== '-' ? `<div class="inline-block text-base font-extrabold px-3 py-0.5 rounded-lg mb-2 shadow-sm ${theme.badgeBg}">${data.article}</div>` : ''}
+              <h2 class="text-3xl sm:text-4xl font-display font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight">${data.word}</h2>
+              ${data.plural && data.plural !== '-' ? `<p class="text-xs font-medium text-slate-400 dark:text-slate-500 mt-2">Plural: <span class="font-semibold text-slate-600 dark:text-slate-300">${data.plural}</span></p>` : ''}
+            </div>
+
+            <div class="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-slate-400 dark:text-slate-500 text-xs pointer-events-none">
+              <span class="flex items-center gap-1 font-medium"><i class="ph-bold ph-hand-tap text-sm text-indigo-500"></i> Çevirmek için dokun</span>
+              <span class="text-[11px]">Sola: Tekrar • Sağa: Ezber</span>
+            </div>
+          </div>
+
+          <div class="face face-back bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-slate-950 border-2 border-indigo-400/40 p-6 flex flex-col justify-between overflow-hidden">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">Detay & Anlam</span>
+              <button type="button" class="btn-card-audio p-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-indigo-500 transition" title="Kelimeyi Dinle"><i class="ph-fill ph-speaker-high text-lg"></i></button>
+            </div>
+
+            <div class="my-auto space-y-3">
+              <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-800 text-left">
+                ${data.plural && data.plural !== '-' ? `
+                  <div class="pb-2.5 mb-2.5 border-b border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between">
+                    <div>
+                      <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">Çoğul (Plural)</span>
+                      <span class="text-sm font-semibold text-slate-700 dark:text-slate-200 font-mono">${data.plural}</span>
+                    </div>
+                    <button type="button" class="btn-card-plural-audio p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-500 hover:bg-indigo-100 transition" title="Çoğul Telaffuzu Dinle"><i class="ph-bold ph-speaker-simple-high text-base"></i></button>
+                  </div>
+                ` : ''}
+
+                <div>
+                  <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">Türkçe Karşılığı</span>
+                  <div class="flex items-center gap-2">
+                    <span class="text-2xl">${data.emoji || '✨'}</span>
+                    <h3 class="text-xl font-display font-black text-slate-900 dark:text-white leading-tight">${data.translation}</h3>
+                  </div>
+                </div>
+              </div>
+
+              ${data.exampleDe ? `
+                <div class="p-3.5 rounded-2xl bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 pointer-events-none">
+                  <div class="flex items-start gap-2">
+                    <i class="ph-bold ph-chat-centered-text text-indigo-500 mt-0.5 shrink-0"></i>
+                    <div>
+                      <p class="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-100">"${data.exampleDe}"</p>
+                      <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 italic">"${data.exampleTr}"</p>
+                    </div>
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+
+            <div class="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-slate-400 text-xs pointer-events-none">
+              <span class="flex items-center gap-1 font-medium"><i class="ph-bold ph-arrow-counter-clockwise text-indigo-500"></i> Ön yüze dönmek için dokun</span>
+              <span class="font-bold text-slate-500 dark:text-slate-300">WortSwipe</span>
+            </div>
+          </div>
+        </div>
+      `;
+
+      card.querySelectorAll(".btn-card-audio").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          speakGermanWord((data.article && data.article !== '-' ? data.article + " " : "") + data.word);
+        });
+      });
+
+      const pluralAudioBtn = card.querySelector(".btn-card-plural-audio");
+      if (pluralAudioBtn) {
+        pluralAudioBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          speakGermanWord(data.plural);
+        });
+      }
+
+      return card;
+    }
+
+    function setupCardGestures(card) {
+      if (!card) return;
+      const likeStamp = card.querySelector(".stamp-like");
+      const dislikeStamp = card.querySelector(".stamp-dislike");
+      let isDragging = false, startX = 0, startY = 0, currentX = 0, currentY = 0, startTime = 0;
+
+      function onStart(e) {
+        if (e.target.closest('.btn-card-audio') || e.target.closest('.btn-card-plural-audio')) return;
+        isDragging = true;
+        const point = e.touches ? e.touches[0] : e;
+        startX = point.clientX;
+        startY = point.clientY;
+        currentX = 0; currentY = 0;
+        startTime = Date.now();
+        card.style.transition = 'none';
+        card.classList.add("cursor-grabbing");
+      }
+
+      function onMove(e) {
+        if (!isDragging) return;
+        const point = e.touches ? e.touches[0] : e;
+        currentX = point.clientX - startX;
+        currentY = point.clientY - startY;
+
+        const rotate = currentX * 0.08;
+        card.style.transform = `translate3d(${currentX}px, ${currentY}px, 0) rotate(${rotate}deg)`;
+
+        const dragLimit = 80;
+        if (currentX > 0) {
+          likeStamp.style.opacity = Math.min(currentX / dragLimit, 1);
+          dislikeStamp.style.opacity = 0;
+        } else {
+          dislikeStamp.style.opacity = Math.min(Math.abs(currentX) / dragLimit, 1);
+          likeStamp.style.opacity = 0;
+        }
+      }
+
+      function onEnd(e) {
+        if (!isDragging) return;
+        isDragging = false;
+        card.classList.remove("cursor-grabbing");
+
+        const moveDistance = Math.hypot(currentX, currentY);
+        const elapsedTime = Date.now() - startTime;
+
+        if (moveDistance < 20 && elapsedTime < 450) {
+          resetCardPosition(card, likeStamp, dislikeStamp);
+          toggleCardFlip();
+          return;
+        }
+
+        const threshold = 100;
+        if (currentX > threshold) executeSwipe("right");
+        else if (currentX < -threshold) executeSwipe("left");
+        else resetCardPosition(card, likeStamp, dislikeStamp);
+      }
+
+      card.addEventListener("mousedown", onStart);
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onEnd);
+      card.addEventListener("touchstart", onStart, { passive: true });
+      window.addEventListener("touchmove", onMove, { passive: true });
+      window.addEventListener("touchend", onEnd);
+    }
+
+    function resetCardPosition(card, likeStamp, dislikeStamp) {
+      if (!card) return;
+      card.style.transition = 'transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+      card.style.transform = 'translate3d(0, 0, 0) rotate(0deg)';
+      if (likeStamp) likeStamp.style.opacity = '0';
+      if (dislikeStamp) dislikeStamp.style.opacity = '0';
+    }
+
+    function toggleCardFlip() {
+      if (!activeCardElement) return;
+      const flipper = activeCardElement.querySelector(".card-flipper");
+      if (!flipper) return;
+      isFlipped = !isFlipped;
+      flipper.classList.toggle("is-flipped", isFlipped);
+    }
+
+    function executeSwipe(direction) {
+      if (!activeCardElement || state.queue.length === 0) return;
+      const currentItem = state.queue[0];
+      const cardToFly = activeCardElement;
+
+      cardToFly.style.transition = 'transform 0.4s ease-out, opacity 0.4s ease-out';
+      const flyDistance = window.innerWidth * 1.35;
+      const flyRotation = direction === 'right' ? 35 : -35;
+      const targetX = direction === 'right' ? flyDistance : -flyDistance;
+
+      cardToFly.style.transform = `translate3d(${targetX}px, 0, 0) rotate(${flyRotation}deg)`;
+      cardToFly.style.opacity = '0';
+      state.totalSwipes++;
+
+      if (direction === 'right') {
+        state.correctSwipes++;
+        state.streak++;
+        if (state.streak > state.bestStreak) state.bestStreak = state.streak;
+        state.history.push({ action: 'mastered', item: currentItem });
+        if (!state.masteredIds.includes(currentItem.id)) state.masteredIds.push(currentItem.id);
+        state.queue.shift();
+      } else {
+        state.streak = 0;
+        state.history.push({ action: 'repeat', item: currentItem });
+        state.queue.shift();
+        const reinsertIndex = Math.min(state.queue.length, 3);
+        state.queue.splice(reinsertIndex, 0, currentItem);
+      }
+
+      setTimeout(() => {
+        saveState();
+        renderDeck();
+      }, 280);
+    }
+
+    function undoLastSwipe() {
+      if (state.history.length === 0) return;
+      const last = state.history.pop();
+      if (last.action === 'mastered') {
+        state.masteredIds = state.masteredIds.filter(id => id !== last.item.id);
+        state.queue.unshift(last.item);
+        if (state.streak > 0) state.streak--;
+      } else if (last.action === 'repeat') {
+        const idx = state.queue.findIndex(i => i.id === last.item.id);
+        if (idx !== -1) state.queue.splice(idx, 1);
+        state.queue.unshift(last.item);
+      }
+      saveState();
+      renderDeck();
+    }
+
+    function updateUI() {
+      const activeCatPool = state.currentCatId === 'all'
+        ? MASTER_VOCABULARY
+        : MASTER_VOCABULARY.filter(w => w.category === state.currentCatId);
+
+      const masteredCount = activeCatPool.filter(w => state.masteredIds.includes(w.id)).length;
+      document.getElementById("counter-mastered").textContent = masteredCount;
+      document.getElementById("counter-queue").textContent = state.queue.length;
+      document.getElementById("counter-streak").textContent = state.streak;
+
+      const total = activeCatPool.length;
+      const pct = total > 0 ? Math.min(Math.round((masteredCount / total) * 100), 100) : 0;
+      document.getElementById("progress-bar-fill").style.width = `${pct}%`;
+
+      document.getElementById("stat-total-swipes").textContent = state.totalSwipes;
+      document.getElementById("stat-mastered").textContent = state.masteredIds.length;
+      document.getElementById("stat-best-streak").textContent = state.bestStreak;
+
+      const accuracy = state.totalSwipes > 0 ? Math.round((state.correctSwipes / state.totalSwipes) * 100) : 0;
+      document.getElementById("stat-accuracy").textContent = `${accuracy}%`;
+    }
+
+    document.getElementById("btn-header-back").addEventListener("click", returnToCategories);
+    document.getElementById("btn-change-category").addEventListener("click", returnToCategories);
+    document.getElementById("btn-action-left").addEventListener("click", () => executeSwipe("left"));
+    document.getElementById("btn-action-right").addEventListener("click", () => executeSwipe("right"));
+    document.getElementById("btn-action-flip").addEventListener("click", toggleCardFlip);
+    document.getElementById("btn-action-undo").addEventListener("click", undoLastSwipe);
+
+    document.getElementById("btn-action-speak").addEventListener("click", () => {
+      if (state.queue.length > 0) {
+        const item = state.queue[0];
+        speakGermanWord((item.article && item.article !== '-' ? item.article + " " : "") + item.word);
+      }
+    });
+
+    document.getElementById("btn-restart-deck").addEventListener("click", () => {
+      const pool = state.currentCatId === 'all'
+        ? MASTER_VOCABULARY
+        : MASTER_VOCABULARY.filter(w => w.category === state.currentCatId);
+      state.queue = [...pool].sort(() => Math.random() - 0.5);
+      renderDeck();
+      updateUI();
+    });
+
+    window.addEventListener("keydown", (e) => {
+      if (document.getElementById('study-screen').classList.contains('hidden')) return;
+      if (e.key === "ArrowLeft") executeSwipe("left");
+      else if (e.key === "ArrowRight") executeSwipe("right");
+      else if (e.key === " " || e.code === "Space") { e.preventDefault(); toggleCardFlip(); }
+      else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        if (state.queue.length > 0) {
+          const item = state.queue[0];
+          speakGermanWord((item.article && item.article !== '-' ? item.article + " " : "") + item.word);
+        }
+      }
+      else if (e.key.toLowerCase() === "z") undoLastSwipe();
+      else if (e.key === "Escape") returnToCategories();
+    });
+
+    document.getElementById("btn-theme").addEventListener("click", () => {
+      document.documentElement.classList.toggle("dark");
+      localStorage.setItem("wortswipe_theme", document.documentElement.classList.contains("dark") ? "dark" : "light");
+    });
+
+    if (localStorage.getItem("wortswipe_theme") === "dark" || 
+       (!localStorage.getItem("wortswipe_theme") && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add("dark");
+    }
+
+    const modalStats = document.getElementById("modal-stats");
+    document.getElementById("btn-stats").addEventListener("click", () => {
+      updateUI();
+      modalStats.classList.remove("hidden");
+      modalStats.classList.add("flex");
+    });
+    document.getElementById("btn-close-stats").addEventListener("click", () => {
+      modalStats.classList.add("hidden");
+      modalStats.classList.remove("flex");
+    });
+    modalStats.addEventListener("click", (e) => {
+      if (e.target === modalStats) {
+        modalStats.classList.add("hidden");
+        modalStats.classList.remove("flex");
+      }
+    });
+
+    document.getElementById("btn-reset-all").addEventListener("click", () => {
+      if (confirm("Tüm ezber geçmişini ve istatistiklerini sıfırlamak istiyor musun?")) {
+        localStorage.removeItem(STORAGE_KEY);
+        state.masteredIds = [];
+        state.streak = 0;
+        state.bestStreak = 0;
+        state.totalSwipes = 0;
+        state.correctSwipes = 0;
+        saveState();
+        renderCategoryScreen();
+        modalStats.classList.add("hidden");
+        modalStats.classList.remove("flex");
+      }
+    });
+
+    window.addEventListener("DOMContentLoaded", () => {
+      loadState();
+      loadWordsFromGoogleSheets();
+    });
+  </script>
+</body>
+</html>
