@@ -282,16 +282,22 @@
 
       try {
         const fetchPromises = fetchTargets.map(async (cat) => {
-          // Doğrudan gid ile Google GViz CSV çekimi
           const url = `https://docs.google.com/spreadsheets/d/${DOC_ID}/gviz/tq?tqx=out:csv&gid=${cat.gid}`;
           const res = await fetch(url);
-          if (!res.ok) throw new Error(`${cat.name} sekmesi okunamadı`);
+          if (!res.ok) return;
           const csvText = await res.text();
           const rows = parseCSV(csvText);
 
+          // Eğer Google boş sekme yerine ilk sayfayı (Supermarkt) döndürdüyse bunu tespit et:
+          // İlk kelime 'Supermarkt' ise ve bu sekme supermarkt değilse, bu sekme henüz boştur.
+          const isFallback = cat.id !== 'supermarkt' && rows.some(r => r[1]?.trim().toLowerCase() === 'supermarkt');
+          if (isFallback) {
+            return; // Boş sekmeyi atla, 0/0 kalsın
+          }
+
           rows.forEach((row, idx) => {
-            // Başlık satırlarını atla (Artikel veya Wort yazanlar)
             const word = row[1] ? row[1].trim() : '';
+            // Başlık satırlarını ve boş satırları atla
             if (word && word.toLowerCase() !== 'wort' && row[0]?.toLowerCase() !== 'artikel') {
               allWords.push({
                 id: `${cat.id}_${idx + 1}`,
@@ -308,6 +314,23 @@
             }
           });
         });
+
+        await Promise.all(fetchPromises);
+        MASTER_VOCABULARY = allWords;
+
+        document.getElementById('loading-state').classList.add('hidden');
+        document.getElementById('category-screen').classList.remove('hidden');
+        document.getElementById('category-screen').classList.add('flex');
+        document.getElementById('deck-name-badge').textContent = 'Konu Seçimi';
+        renderCategoryScreen();
+      } catch (err) {
+        console.error("Tablo yükleme hatası:", err);
+        document.getElementById('loading-state').innerHTML = `
+          <div class="text-rose-500 font-bold mb-2">⚠️ E-Tabloya Bağlanılamadı</div>
+          <button onclick="location.reload()" class="px-4 py-2 bg-rose-500 text-white rounded-xl text-xs font-bold">Tekrar Dene</button>
+        `;
+      }
+    }
 
         await Promise.all(fetchPromises);
         MASTER_VOCABULARY = allWords;
