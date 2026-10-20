@@ -236,21 +236,22 @@
 
   <script>
     /* =====================================================================
-       YAYINLANMIŞ GOOGLE E-TABLO BAĞLANTISI
+       DOĞRUDAN GID İLE BAĞLANAN GOOGLE E-TABLO KONFİGÜRASYONU
     ===================================================================== */
-    const BASE_PUB_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTJ8Vx7kRdSxReBsO9FXAKh2KBMFGVeGRneZ4DB9ID4ODwa_dTa7AsQ0OB6BHiYgvY-IWvtRsKoIOVq/pub';
+    const DOC_ID = '1Xy5Ws703jxfvYb8A7f4kOL-r4YKX8JhEHTlKfhwV3eE';
 
+    // Her sekmeye özel tam gid numaraları
     const CATEGORIES = [
-      { id: 'supermarkt', name: 'Süpermarket & Alışveriş', icon: '🛒', desc: 'Gıdalar, içecekler, market' },
-      { id: 'verkehr', name: 'Ulaşım & Seyahat', icon: '🚆', desc: 'Bilet, tren, istasyon, uçak' },
-      { id: 'obst', name: 'Manav (Meyve & Sebze)', icon: '🍎', desc: 'Taze meyveler, sebzeler' },
-      { id: 'schreibwaren', name: 'Kırtasiye & Ofis', icon: '✏️', desc: 'Defter, kitap, kalem' },
-      { id: 'zuhause', name: 'Ev & Eşyalar', icon: '🏠', desc: 'Mobilyalar, odalar, anahtar' },
-      { id: 'all', name: 'Tümünü Karışık Çalış', icon: '🎲', desc: 'Tüm sekmeleri birleştir' }
+      { id: 'supermarkt', gid: '0', name: 'Süpermarket & Alışveriş', icon: '🛒', desc: 'Gıdalar, içecekler, market' },
+      { id: 'verkehr', gid: '1498837832', name: 'Ulaşım & Seyahat', icon: '🚆', desc: 'Bilet, tren, istasyon, uçak' },
+      { id: 'obst', gid: '696066955', name: 'Manav (Meyve & Sebze)', icon: '🍎', desc: 'Taze meyveler, sebzeler' },
+      { id: 'schreibwaren', gid: '604355389', name: 'Kırtasiye & Ofis', icon: '✏️', desc: 'Defter, kitap, kalem' },
+      { id: 'zuhause', gid: '1012586395', name: 'Ev & Eşyalar', icon: '🏠', desc: 'Mobilyalar, odalar, anahtar' },
+      { id: 'all', gid: null, name: 'Tümünü Karışık Çalış', icon: '🎲', desc: 'Tüm sekmeleri birleştir' }
     ];
 
     let MASTER_VOCABULARY = [];
-    const STORAGE_KEY = "wortswipe_sheets_v2";
+    const STORAGE_KEY = "wortswipe_sheets_v3";
 
     let state = {
       currentCatId: null,
@@ -263,12 +264,10 @@
       correctSwipes: 0
     };
 
-    /* CSV Okuyucu */
     function parseCSV(text) {
       const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
       const rows = [];
-      for (let i = 1; i < lines.length; i++) {
-        // Virgülle ayrılmış CSV alanlarını (tırnak içindekileri koruyarak) böl
+      for (let i = 0; i < lines.length; i++) {
         const matches = lines[i].match(/(".*?"|[^",\r\n]+)(?=\s*,|\s*$)/g);
         if (matches) {
           rows.push(matches.map(m => m.replace(/^"|"$/g, '').trim()));
@@ -278,32 +277,33 @@
     }
 
     async function loadWordsFromGoogleSheets() {
-      const sheetNames = ['supermarkt', 'verkehr', 'obst', 'schreibwaren', 'zuhause'];
       const allWords = [];
+      const fetchTargets = CATEGORIES.filter(c => c.gid !== null);
 
       try {
-        const fetchPromises = sheetNames.map(async (sheet) => {
-          // Yayınlanmış Google E-tablo sekme CSV URL'si
-          const url = `${BASE_PUB_URL}?output=csv&sheet=${encodeURIComponent(sheet)}`;
+        const fetchPromises = fetchTargets.map(async (cat) => {
+          // Doğrudan gid ile Google GViz CSV çekimi
+          const url = `https://docs.google.com/spreadsheets/d/${DOC_ID}/gviz/tq?tqx=out:csv&gid=${cat.gid}`;
           const res = await fetch(url);
-          if (!res.ok) throw new Error(`${sheet} sekmesi okunamadı`);
+          if (!res.ok) throw new Error(`${cat.name} sekmesi okunamadı`);
           const csvText = await res.text();
           const rows = parseCSV(csvText);
 
           rows.forEach((row, idx) => {
-            // Sütunlar: 0:Artikel, 1:Wort, 2:Plural, 3:Bedeutung, 4:Emoji, 5:BeispielDE, 6:BeispielTR
-            if (row.length >= 4 && row[1]) {
+            // Başlık satırlarını atla (Artikel veya Wort yazanlar)
+            const word = row[1] ? row[1].trim() : '';
+            if (word && word.toLowerCase() !== 'wort' && row[0]?.toLowerCase() !== 'artikel') {
               allWords.push({
-                id: `${sheet}_${idx + 1}`,
-                category: sheet,
-                article: row[0] || '-',
-                word: row[1],
-                plural: row[2] || '-',
-                translation: row[3],
+                id: `${cat.id}_${idx + 1}`,
+                category: cat.id,
+                article: (row[0] && row[0] !== '') ? row[0] : '-',
+                word: word,
+                plural: (row[2] && row[2] !== '') ? row[2] : '-',
+                translation: row[3] || '',
                 emoji: row[4] || '✨',
                 exampleDe: row[5] || '',
                 exampleTr: row[6] || '',
-                type: (row[0] && row[0] !== '-') ? 'Nomen' : 'Wort'
+                type: (row[0] && row[0] !== '-' && row[0] !== '') ? 'Nomen' : 'Wort'
               });
             }
           });
@@ -321,7 +321,7 @@
         console.error("Tablo yükleme hatası:", err);
         document.getElementById('loading-state').innerHTML = `
           <div class="text-rose-500 font-bold mb-2">⚠️ E-Tabloya Bağlanılamadı</div>
-          <p class="text-xs text-slate-500 max-w-xs mb-3">Google E-Tablonuzdaki sekmelerin adlarının tam olarak <b>supermarkt, verkehr, obst, schreibwaren, zuhause</b> olduğundan emin olun.</p>
+          <p class="text-xs text-slate-500 max-w-xs mb-3">Lütfen tablonun Paylaşım ayarının "Bağlantıya sahip olan herkes" olduğundan emin olun.</p>
           <button onclick="location.reload()" class="px-4 py-2 bg-rose-500 text-white rounded-xl text-xs font-bold">Tekrar Dene</button>
         `;
       }
@@ -504,6 +504,7 @@
 
       card.innerHTML = `
         <div class="card-flipper">
+          <!-- ÖN YÜZ -->
           <div class="face bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 p-6 flex flex-col justify-between overflow-hidden">
             <div class="stamp-like pointer-events-none absolute top-7 left-7 z-40 border-4 border-emerald-500 text-emerald-500 font-display font-black text-2xl tracking-wider px-3.5 py-1 rounded-xl rotate-[-15deg] opacity-0 transition-opacity uppercase">GELERNT ✓</div>
             <div class="stamp-dislike pointer-events-none absolute top-7 right-7 z-40 border-4 border-rose-500 text-rose-500 font-display font-black text-2xl tracking-wider px-3.5 py-1 rounded-xl rotate-[15deg] opacity-0 transition-opacity uppercase">NOCHMAL ✕</div>
@@ -526,6 +527,7 @@
             </div>
           </div>
 
+          <!-- ARKA YÜZ -->
           <div class="face face-back bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-slate-950 border-2 border-indigo-400/40 p-6 flex flex-col justify-between overflow-hidden">
             <div class="flex items-center justify-between">
               <span class="text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">Detay & Anlam</span>
@@ -735,7 +737,7 @@
       document.getElementById("counter-streak").textContent = state.streak;
 
       const total = activeCatPool.length;
-      const pct = total > 0 ? Math.min(Math.round((masteredCount / total) * 100), 100) : 0;
+      const pct = total > 0 ? Math.round((masteredCount / total) * 100), 100 : 0;
       document.getElementById("progress-bar-fill").style.width = `${pct}%`;
 
       document.getElementById("stat-total-swipes").textContent = state.totalSwipes;
